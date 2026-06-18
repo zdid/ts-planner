@@ -4,14 +4,11 @@
  */
 
 import { PlanificationDefinition, Trigger } from "./types";
+import { client } from "./index";
+import { info, warn } from "./logger";
 
-let _publish: ((topic: string, payload: string) => void) | null = null;
 const TOPIC_EXECUTION = "domotique/mistral/execution";
 const timers = new Map<string, NodeJS.Timeout>();
-
-export function setPublisher(fn: (topic: string, payload: string) => void) {
-  _publish = fn;
-}
 
 // ─── Planifier ────────────────────────────────────────────────────────────────
 
@@ -20,26 +17,26 @@ export function schedulePlanification(plan: PlanificationDefinition): void {
 
   const ms = triggerToMs(plan.trigger);
   if (ms === null) {
-    console.warn(`[scheduler] Déclencheur non supporté : "${plan.name}" → ${plan.trigger.type}`);
+    warn(`[scheduler] Déclencheur non supporté : "${plan.name}" → ${plan.trigger.type}`);
     return;
   }
 
   const recurring = isRecurring(plan.trigger);
 
   const fire = () => {
-    console.log(`[scheduler] 🔔 Déclenchement : "${plan.name}"`);
-    _publish?.(TOPIC_EXECUTION, JSON.stringify({
+    info(`[scheduler] 🔔 Déclenchement : "${plan.name}"`);
+    client.publish(TOPIC_EXECUTION, JSON.stringify({
       type:          "execution_request",
       planification: plan,
       triggered_at:  new Date().toISOString(),
-    }));
+    }), { qos: 1 });
 
     if (recurring) {
       const next = triggerToMs(plan.trigger);
       if (next !== null) {
         const t = setTimeout(fire, next);
         timers.set(plan.name.toLowerCase(), t);
-        console.log(`[scheduler] Prochain déclenchement "${plan.name}" dans ${Math.round(next/1000)}s`);
+        info(`[scheduler] Prochain déclenchement "${plan.name}" dans ${Math.round(next/1000)}s`);
       }
     } else {
       timers.delete(plan.name.toLowerCase());
@@ -48,7 +45,7 @@ export function schedulePlanification(plan: PlanificationDefinition): void {
 
   const timer = setTimeout(fire, ms);
   timers.set(plan.name.toLowerCase(), timer);
-  console.log(`[scheduler] "${plan.name}" programmée dans ${Math.round(ms/1000)}s (${plan.trigger.type})`);
+  info(`[scheduler] "${plan.name}" programmée dans ${Math.round(ms/1000)}s (${plan.trigger.type})`);
 }
 
 export function unschedulePlanification(name: string): void {
@@ -57,7 +54,7 @@ export function unschedulePlanification(name: string): void {
   if (timer) {
     clearTimeout(timer);
     timers.delete(key);
-    console.log(`[scheduler] "${name}" annulée`);
+    info(`[scheduler] "${name}" annulée`);
   }
 }
 
@@ -77,7 +74,7 @@ function triggerToMs(trigger: Trigger): number | null {
       if (trigger.seconds !== undefined) return trigger.seconds * 1000;
       if (trigger.seconds_min !== undefined && trigger.seconds_max !== undefined) {
         const s = randInt(trigger.seconds_min, trigger.seconds_max);
-        console.log(`[scheduler] Aléatoire : ${s}s (${trigger.seconds_min}-${trigger.seconds_max})`);
+        info(`[scheduler] Aléatoire : ${s}s (${trigger.seconds_min}-${trigger.seconds_max})`);
         return s * 1000;
       }
       return null;
@@ -149,7 +146,7 @@ function triggerToMs(trigger: Trigger): number | null {
     }
 
     default:
-      console.warn(`[scheduler] Type non géré : ${trigger.type}`);
+      warn(`[scheduler] Type non géré : ${trigger.type}`);
       return null;
   }
 }

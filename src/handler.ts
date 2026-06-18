@@ -9,6 +9,7 @@ import { saveMacro, getMacro, deleteMacro, listMacros,
          listPlanifications, setPlanificationActive, updatePlanification } from "./store";
 import { schedulePlanification, unschedulePlanification } from "./scheduler";
 import { executeSequence } from "./ha-api";
+import { info, error, debug } from "./logger";
 
 export async function handleCommande(
   payload: DomoticNode & { correlation_id: string }
@@ -46,9 +47,9 @@ export async function handleCommande(
       case "execution": {
         const exec = payload as ExecutionPayload & { correlation_id: string };
         const steps = exec.execution.steps;
-        console.log(`[handler] Exécution "${exec.execution.trigger_name}" — ${steps.length} étapes`);
+        info(`[handler] Exécution "${exec.execution.trigger_name}" — ${steps.length} étapes`);
         executeSequence(steps).catch(e =>
-          console.error("[handler] Erreur exécution :", e)
+          error("[handler] Erreur exécution : %s", e)
         );
         return ok(corr, `Exécution de "${exec.execution.trigger_name}" lancée.`);
       }
@@ -57,7 +58,7 @@ export async function handleCommande(
         return err(corr, `Type inconnu : ${(payload as any).type}`);
     }
   } catch (e: any) {
-    console.error("[handler] Erreur :", e);
+    error("[handler] Erreur : %s", e.message);
     return err(corr, `Erreur interne : ${e.message}`);
   }
 }
@@ -157,11 +158,11 @@ function handleGestion(corr: string, g: GestionNode): MqttReponse {
 // ─── Helpers réponse ──────────────────────────────────────────────────────────
 
 function ok(corr: string, message: string, data?: unknown): MqttReponse {
-  console.log(`[handler] ✅ ${message}`);
+  info(`[handler] ✅ ${message}`);
   return { correlation_id: corr, success: true, message, data };
 }
 
 function err(corr: string, message: string): MqttReponse {
-  console.error(`[handler] ❌ ${message}`);
+  error(`[handler] ❌ ${message}`);
   return { correlation_id: corr, success: false, message };
 }

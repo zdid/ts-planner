@@ -6,6 +6,7 @@
 import * as fs   from "fs";
 import * as path from "path";
 import { MacroDefinition, PlanificationDefinition } from "./types";
+import { info, error } from "./logger";
 
 const DATA_DIR  = process.env.DATA_DIR || "./data";
 const MACRO_FILE = path.join(DATA_DIR, "macros.json");
@@ -23,25 +24,27 @@ function loadFromDisk() {
     if (fs.existsSync(MACRO_FILE)) {
       const data: MacroDefinition[] = JSON.parse(fs.readFileSync(MACRO_FILE, "utf-8"));
       data.forEach(m => macros.set(m.name.toLowerCase(), m));
-      console.log(`[store] ${macros.size} macro(s) chargée(s)`);
+      info(`[store] ${macros.size} macro(s) chargée(s)`);
     }
-  } catch (e) { console.error("[store] Erreur chargement macros :", e); }
+  } catch (e) { error("[store] Erreur chargement macros : %s", e); }
 
   try {
     if (fs.existsSync(PLAN_FILE)) {
       const data: PlanificationDefinition[] = JSON.parse(fs.readFileSync(PLAN_FILE, "utf-8"));
       data.forEach(p => planifications.set(p.name.toLowerCase(), p));
-      console.log(`[store] ${planifications.size} planification(s) chargée(s)`);
+      info(`[store] ${planifications.size} planification(s) chargée(s)`);
     }
-  } catch (e) { console.error("[store] Erreur chargement planifications :", e); }
+  } catch (e) { error("[store] Erreur chargement planifications : %s", e); }
 }
 
 function saveMacrosToDisk() {
   fs.writeFileSync(MACRO_FILE, JSON.stringify([...macros.values()], null, 2), "utf-8");
+  info(`[store] ${macros.size} macro(s) sauvegardée(s) sur disque`);
 }
 
 function savePlansToDisk() {
   fs.writeFileSync(PLAN_FILE, JSON.stringify([...planifications.values()], null, 2), "utf-8");
+  info(`[store] ${planifications.size} planification(s) sauvegardée(s) sur disque`);
 }
 
 // Chargement au démarrage
@@ -52,7 +55,7 @@ loadFromDisk();
 export function saveMacro(macro: MacroDefinition): void {
   macros.set(macro.name.toLowerCase(), macro);
   saveMacrosToDisk();
-  console.log(`[store] Macro sauvegardée : "${macro.name}"`);
+  info(`[store] Macro sauvegardée : "${macro.name}"`);
 }
 
 export function getMacro(name: string): MacroDefinition | undefined {
@@ -74,7 +77,7 @@ export function listMacros(): MacroDefinition[] {
 export function savePlanification(plan: PlanificationDefinition): void {
   planifications.set(plan.name.toLowerCase(), plan);
   savePlansToDisk();
-  console.log(`[store] Planification sauvegardée : "${plan.name}"`);
+  info(`[store] Planification sauvegardée : "${plan.name}"`);
 }
 
 export function getPlanification(name: string): PlanificationDefinition | undefined {

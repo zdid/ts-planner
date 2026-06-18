@@ -6,6 +6,7 @@
 import https from "https";
 import http  from "http";
 import { ExecutionStep } from "./types";
+import { info, error, debug } from "./logger";
 
 const HA_URL   = process.env.HA_URL   || "http://192.168.1.51:8123";
 const HA_TOKEN = process.env.HA_TOKEN || "";
@@ -49,13 +50,13 @@ async function haRequest(method: string, path: string, body?: object): Promise<a
 export async function executeStep(step: ExecutionStep): Promise<void> {
   if (step.type === "wait") {
     const ms = (step.seconds || 0) * 1000;
-    console.log(`[ha-api] Attente ${step.seconds}s (résolu depuis: ${step.resolved_from || "fixe"})`);
+    info(`[ha-api] Attente ${step.seconds}s (résolu depuis: ${step.resolved_from || "fixe"})`);
     await sleep(ms);
     return;
   }
 
   if (step.type === "action" && step.order) {
-    console.log(`[ha-api] Exécution : "${step.order}"`);
+    info(`[ha-api] Exécution : "${step.order}"`);
     // On envoie l'ordre à Mistral pour qu'il le convertisse en appel HA
     // TODO : appel direct HA si l'ordre est déjà un service connu
     await callHaConversation(step.order);
@@ -65,14 +66,14 @@ export async function executeStep(step: ExecutionStep): Promise<void> {
 // ─── Exécution d'une séquence complète ───────────────────────────────────────
 
 export async function executeSequence(steps: ExecutionStep[]): Promise<void> {
-  console.log(`[ha-api] Début séquence (${steps.length} étapes)`);
+  info(`[ha-api] Début séquence (${steps.length} étapes)`);
   for (const step of steps) {
     if (step.delay_before_seconds > 0) {
       await sleep(step.delay_before_seconds * 1000);
     }
     await executeStep(step);
   }
-  console.log(`[ha-api] Séquence terminée`);
+  info(`[ha-api] Séquence terminée`);
 }
 
 // ─── Appels HA directs ────────────────────────────────────────────────────────
@@ -109,7 +110,7 @@ async function callHaConversation(text: string): Promise<string> {
     });
     return result?.response?.speech?.plain?.speech || "ok";
   } catch (e) {
-    console.error(`[ha-api] Erreur conversation : ${e}`);
+    error(`[ha-api] Erreur conversation : ${e}`);
     return "erreur";
   }
 }
